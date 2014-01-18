@@ -52,7 +52,16 @@ public class VisionSampleProject2014 extends SimpleRobot {
 
     //Maximum number of particles to process
     final int MAX_PARTICLES = 8;
+    
+    final String rLow = "R Low";
+    final String rHgh = "R Hgh";
+    final String gLow = "G Low";
+    final String gHgh = "G Hgh";
+    final String bLow = "B Low";
+    final String bHgh = "B Hgh";
 
+    final String shootingLeft = "Shooting Left";
+    
     AxisCamera camera;          // the axis camera object (connected to the switch)
     CriteriaCollection cc;      // the criteria for doing the particle filter operation
     
@@ -74,10 +83,21 @@ public class VisionSampleProject2014 extends SimpleRobot {
     };
     
     public void robotInit() {
-        camera = AxisCamera.getInstance();  // get an instance of the camera
+        camera = AxisCamera.getInstance("10.11.65.11");  // get an instance of the camera
         cc = new CriteriaCollection();      // create the criteria for the particle filter
         cc.addCriteria(MeasurementType.IMAQ_MT_AREA, AREA_MINIMUM, 65535, false);
-        SmartDashboard.putString("Init", "Init");
+        
+	SmartDashboard.putNumber(rLow, 192);
+	SmartDashboard.putNumber(rHgh, 256);
+	SmartDashboard.putNumber(gLow, 192);
+	SmartDashboard.putNumber(gHgh, 256);
+	SmartDashboard.putNumber(bLow, 192);
+	SmartDashboard.putNumber(bHgh, 256);
+        
+        SmartDashboard.putBoolean(shootingLeft, true);
+        
+        SmartDashboard.putString("Shooting Target", "Left");
+        SmartDashboard.putString("Shooting Target", "Right");
     }
 
     public void autonomous() {
@@ -97,8 +117,17 @@ public class VisionSampleProject2014 extends SimpleRobot {
                 ColorImage image = camera.getImage();     // comment if using stored images
                 //ColorImage image;                           // next 2 lines read image from flash on cRIO
                 //image = new RGBImage("/testImage.jpg");		// get the sample image from the cRIO flash
-                BinaryImage thresholdImage = image.thresholdHSV(105, 137, 230, 255, 133, 183);   // keep only green objects
+                //BinaryImage thresholdImage = image.thresholdHSV(105, 137, 230, 255, 133, 183);   // keep only green objects
                 //thresholdImage.write("/threshold.bmp");
+                
+                BinaryImage thresholdImage = image.thresholdRGB(
+                    (int)SmartDashboard.getNumber(rLow),
+                    (int)SmartDashboard.getNumber(rHgh),
+                    (int)SmartDashboard.getNumber(gLow),
+                    (int)SmartDashboard.getNumber(gHgh),
+                    (int)SmartDashboard.getNumber(bLow),
+                    (int)SmartDashboard.getNumber(bHgh));                
+                
                 BinaryImage filteredImage = thresholdImage.particleFilter(cc);           // filter out small particles
                 //filteredImage.write("/filteredImage.bmp");
                 
@@ -122,16 +151,16 @@ public class VisionSampleProject2014 extends SimpleRobot {
 			//Check if the particle is a horizontal target, if not, check if it's a vertical target
 			if(scoreCompare(scores[i], false))
 			{
-                            System.out.println("particle: " + i + "is a Horizontal Target centerX: " + report.center_mass_x + "centerY: " + report.center_mass_y);
+                            //System.out.println("particle: " + i + "is a Horizontal Target centerX: " + report.center_mass_x + "centerY: " + report.center_mass_y);
                             horizontalTargets[horizontalTargetCount++] = i; //Add particle to target array and increment count
 			} else if (scoreCompare(scores[i], true)) {
-                            System.out.println("particle: " + i + "is a Vertical Target centerX: " + report.center_mass_x + "centerY: " + report.center_mass_y);
+                            //System.out.println("particle: " + i + "is a Vertical Target centerX: " + report.center_mass_x + "centerY: " + report.center_mass_y);
                             verticalTargets[verticalTargetCount++] = i;  //Add particle to target array and increment count
 			} else {
-                            System.out.println("particle: " + i + "is not a Target centerX: " + report.center_mass_x + "centerY: " + report.center_mass_y);
+                            //System.out.println("particle: " + i + "is not a Target centerX: " + report.center_mass_x + "centerY: " + report.center_mass_y);
 			}
-                            System.out.println("rect: " + scores[i].rectangularity + "ARHoriz: " + scores[i].aspectRatioHorizontal);
-                            System.out.println("ARVert: " + scores[i].aspectRatioVertical);	
+                            //System.out.println("rect: " + scores[i].rectangularity + "ARHoriz: " + scores[i].aspectRatioHorizontal);
+                            //System.out.println("ARVert: " + scores[i].aspectRatioVertical);	
 			}
 
 			//Zero out scores and set verticalIndex to first target in case there are no horizontal targets
@@ -190,14 +219,18 @@ public class VisionSampleProject2014 extends SimpleRobot {
                                     ParticleAnalysisReport distanceReport = filteredImage.getParticleAnalysisReport(target.verticalIndex);
                                     double distance = computeDistance(filteredImage, distanceReport, target.verticalIndex);
                                     SmartDashboard.putNumber("Target Distance", distance);
-                                    SmartDashboard.putBoolean("Target Hot", target.Hot);
+                                    SmartDashboard.putBoolean("Any Target Hot", target.Hot);
+                                    SmartDashboard.putBoolean("Shooting Target Hot", target.Hot &&
+                                            (SmartDashboard.getBoolean(shootingLeft)
+                                                    ? target.leftScore > LR_SCORE_LIMIT
+                                                    : target.rightScore > LR_SCORE_LIMIT));
                                     if(target.Hot)
                                     {
-                                            System.out.println("Hot target located");
-                                            System.out.println("Distance: " + distance);
+                                            //System.out.println("Hot target located");
+                                            //System.out.println("Distance: " + distance);
                                     } else {
-                                            System.out.println("No hot target present");
-                                            System.out.println("Distance: " + distance);
+                                            //System.out.println("No hot target present");
+                                            //System.out.println("Distance: " + distance);
                                     }
                             }
                 }
