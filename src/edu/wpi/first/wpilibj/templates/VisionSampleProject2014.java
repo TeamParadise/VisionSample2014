@@ -59,8 +59,17 @@ public class VisionSampleProject2014 extends SimpleRobot {
     final String gHgh = "G Hgh";
     final String bLow = "B Low";
     final String bHgh = "B Hgh";
+    
+    final String hLow = "H Low";
+    final String hHgh = "H Hgh";
+    final String sLow = "S Low";
+    final String sHgh = "S Hgh";
+    final String vLow = "V Low";
+    final String vHgh = "V Hgh";
 
     final String shootingLeft = "Shooting Left";
+    
+    final String useRGB = "Use RGB";
     
     AxisCamera camera;          // the axis camera object (connected to the switch)
     CriteriaCollection cc;      // the criteria for doing the particle filter operation
@@ -84,6 +93,7 @@ public class VisionSampleProject2014 extends SimpleRobot {
     
     public void robotInit() {
         camera = AxisCamera.getInstance("10.11.65.11");  // get an instance of the camera
+//        camera = AxisCamera.getInstance("10.11.65.12");  // get an instance of the camera
         cc = new CriteriaCollection();      // create the criteria for the particle filter
         cc.addCriteria(MeasurementType.IMAQ_MT_AREA, AREA_MINIMUM, 65535, false);
         
@@ -93,7 +103,16 @@ public class VisionSampleProject2014 extends SimpleRobot {
 	SmartDashboard.putNumber(gHgh, 256);
 	SmartDashboard.putNumber(bLow, 192);
 	SmartDashboard.putNumber(bHgh, 256);
+         
+	SmartDashboard.putNumber(hLow, 110);
+	SmartDashboard.putNumber(hHgh, 150);
+	SmartDashboard.putNumber(sLow, 230);
+	SmartDashboard.putNumber(sHgh, 255);
+	SmartDashboard.putNumber(vLow, 230);
+	SmartDashboard.putNumber(vHgh, 255);
         
+        SmartDashboard.putBoolean(useRGB, false);
+       
         SmartDashboard.putBoolean(shootingLeft, true);
         
         SmartDashboard.putString("Shooting Target", "Left");
@@ -120,13 +139,21 @@ public class VisionSampleProject2014 extends SimpleRobot {
                 //BinaryImage thresholdImage = image.thresholdHSV(105, 137, 230, 255, 133, 183);   // keep only green objects
                 //thresholdImage.write("/threshold.bmp");
                 
-                BinaryImage thresholdImage = image.thresholdRGB(
-                    (int)SmartDashboard.getNumber(rLow),
-                    (int)SmartDashboard.getNumber(rHgh),
-                    (int)SmartDashboard.getNumber(gLow),
-                    (int)SmartDashboard.getNumber(gHgh),
-                    (int)SmartDashboard.getNumber(bLow),
-                    (int)SmartDashboard.getNumber(bHgh));                
+                BinaryImage thresholdImage = SmartDashboard.getBoolean(useRGB)
+                        ? image.thresholdRGB(
+                            (int)SmartDashboard.getNumber(rLow),
+                            (int)SmartDashboard.getNumber(rHgh),
+                            (int)SmartDashboard.getNumber(gLow),
+                            (int)SmartDashboard.getNumber(gHgh),
+                            (int)SmartDashboard.getNumber(bLow),
+                            (int)SmartDashboard.getNumber(bHgh))
+                        : image.thresholdHSV(
+                            (int)SmartDashboard.getNumber(hLow),
+                            (int)SmartDashboard.getNumber(hHgh),
+                            (int)SmartDashboard.getNumber(sLow),
+                            (int)SmartDashboard.getNumber(sHgh),
+                            (int)SmartDashboard.getNumber(vLow),
+                            (int)SmartDashboard.getNumber(vHgh));
                 
                 BinaryImage filteredImage = thresholdImage.particleFilter(cc);           // filter out small particles
                 //filteredImage.write("/filteredImage.bmp");
@@ -139,26 +166,27 @@ public class VisionSampleProject2014 extends SimpleRobot {
                 
                 if(filteredImage.getNumberParticles() > 0)
                 {
-			for (int i = 0; i < MAX_PARTICLES && i < filteredImage.getNumberParticles(); i++) {
-			ParticleAnalysisReport report = filteredImage.getParticleAnalysisReport(i);
-                        scores[i] = new Scores();
-					
-			//Score each particle on rectangularity and aspect ratio
-			scores[i].rectangularity = scoreRectangularity(report);
-			scores[i].aspectRatioVertical = scoreAspectRatio(filteredImage, report, i, true);
-			scores[i].aspectRatioHorizontal = scoreAspectRatio(filteredImage, report, i, false);			
-					
-			//Check if the particle is a horizontal target, if not, check if it's a vertical target
-			if(scoreCompare(scores[i], false))
-			{
-                            //System.out.println("particle: " + i + "is a Horizontal Target centerX: " + report.center_mass_x + "centerY: " + report.center_mass_y);
-                            horizontalTargets[horizontalTargetCount++] = i; //Add particle to target array and increment count
-			} else if (scoreCompare(scores[i], true)) {
-                            //System.out.println("particle: " + i + "is a Vertical Target centerX: " + report.center_mass_x + "centerY: " + report.center_mass_y);
-                            verticalTargets[verticalTargetCount++] = i;  //Add particle to target array and increment count
-			} else {
-                            //System.out.println("particle: " + i + "is not a Target centerX: " + report.center_mass_x + "centerY: " + report.center_mass_y);
-			}
+			for (int i = 0; i < MAX_PARTICLES && i < filteredImage.getNumberParticles(); i++)
+                        {
+                            ParticleAnalysisReport report = filteredImage.getParticleAnalysisReport(i);
+                            scores[i] = new Scores();
+
+                            //Score each particle on rectangularity and aspect ratio
+                            scores[i].rectangularity = scoreRectangularity(report);
+                            scores[i].aspectRatioVertical = scoreAspectRatio(filteredImage, report, i, true);
+                            scores[i].aspectRatioHorizontal = scoreAspectRatio(filteredImage, report, i, false);			
+
+                            //Check if the particle is a horizontal target, if not, check if it's a vertical target
+                            if(scoreCompare(scores[i], false))
+                            {
+                                //System.out.println("particle: " + i + "is a Horizontal Target centerX: " + report.center_mass_x + "centerY: " + report.center_mass_y);
+                                horizontalTargets[horizontalTargetCount++] = i; //Add particle to target array and increment count
+                            } else if (scoreCompare(scores[i], true)) {
+                                //System.out.println("particle: " + i + "is a Vertical Target centerX: " + report.center_mass_x + "centerY: " + report.center_mass_y);
+                                verticalTargets[verticalTargetCount++] = i;  //Add particle to target array and increment count
+                            } else {
+                                //System.out.println("particle: " + i + "is not a Target centerX: " + report.center_mass_x + "centerY: " + report.center_mass_y);
+                            }
                             //System.out.println("rect: " + scores[i].rectangularity + "ARHoriz: " + scores[i].aspectRatioHorizontal);
                             //System.out.println("ARVert: " + scores[i].aspectRatioVertical);	
 			}
@@ -166,6 +194,10 @@ public class VisionSampleProject2014 extends SimpleRobot {
 			//Zero out scores and set verticalIndex to first target in case there are no horizontal targets
 			target.totalScore = target.leftScore = target.rightScore = target.tapeWidthScore = target.verticalScore = 0;
 			target.verticalIndex = verticalTargets[0];
+                        target.Hot = hotOrNot(target);
+                        
+                        UpdateSmartDashboard(target);
+                        
 			for (int i = 0; i < verticalTargetCount; i++)
 			{
 				ParticleAnalysisReport verticalReport = filteredImage.getParticleAnalysisReport(verticalTargets[i]);
@@ -200,15 +232,12 @@ public class VisionSampleProject2014 extends SimpleRobot {
                                             target.rightScore = rightScore;
                                             target.tapeWidthScore = tapeWidthScore;
                                             target.verticalScore = verticalScore;
-                                            SmartDashboard.putNumber("Target Total Score", target.totalScore);
-                                            SmartDashboard.putNumber("Target Left Score", target.leftScore);
-                                            SmartDashboard.putNumber("Target Right Score", target.rightScore);
-                                            SmartDashboard.putNumber("Target Tape Width Score", target.tapeWidthScore);
-                                            SmartDashboard.putNumber("Target Vertical Score", target.verticalScore);
+                                            
+                                            //Determine if the best target is a Hot target
+                                           target.Hot = hotOrNot(target);
+                                           UpdateSmartDashboard(target);
                                     }
                                 }
-                                //Determine if the best target is a Hot target
-                                target.Hot = hotOrNot(target);
                             }
 
                             if(verticalTargetCount > 0)
@@ -219,11 +248,6 @@ public class VisionSampleProject2014 extends SimpleRobot {
                                     ParticleAnalysisReport distanceReport = filteredImage.getParticleAnalysisReport(target.verticalIndex);
                                     double distance = computeDistance(filteredImage, distanceReport, target.verticalIndex);
                                     SmartDashboard.putNumber("Target Distance", distance);
-                                    SmartDashboard.putBoolean("Any Target Hot", target.Hot);
-                                    SmartDashboard.putBoolean("Shooting Target Hot", target.Hot &&
-                                            (SmartDashboard.getBoolean(shootingLeft)
-                                                    ? target.leftScore > LR_SCORE_LIMIT
-                                                    : target.rightScore > LR_SCORE_LIMIT));
                                     if(target.Hot)
                                     {
                                             //System.out.println("Hot target located");
@@ -250,6 +274,21 @@ public class VisionSampleProject2014 extends SimpleRobot {
                 ex.printStackTrace();
             }
         }
+    }
+    
+    private void UpdateSmartDashboard(TargetReport target)
+    {
+        SmartDashboard.putNumber("Target Total Score", target.totalScore);
+        SmartDashboard.putNumber("Target Left Score", target.leftScore);
+        SmartDashboard.putNumber("Target Right Score", target.rightScore);
+        SmartDashboard.putNumber("Target Tape Width Score", target.tapeWidthScore);
+        SmartDashboard.putNumber("Target Vertical Score", target.verticalScore);
+        
+        SmartDashboard.putBoolean("Any Target Hot", target.Hot);
+        SmartDashboard.putBoolean("Shooting Target Hot", target.Hot &&
+                (SmartDashboard.getBoolean(shootingLeft)
+                        ? target.leftScore > LR_SCORE_LIMIT
+                        : target.rightScore > LR_SCORE_LIMIT));
     }
 
     /**
